@@ -43,6 +43,11 @@ class VideoProcessor
                 echo "Convert Video Failed\n";
                 return false;
             }
+
+            if (! $this->deleteOriginalFile($tempFilePath)) {
+                echo "Can't\n";
+                return false;
+            }
         }
     }
 
@@ -104,6 +109,16 @@ class VideoProcessor
             foreach ($outputLog as $line) {
                 echo $line . "<br>";
             }
+            return false;
+        }
+
+        return true;
+    }
+
+    private function deleteOriginalFile($filePath)
+    {
+        if (! unlink($filePath)) {
+            echo "Couldn't not delete file\n";
             return false;
         }
 
