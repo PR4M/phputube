@@ -2,17 +2,28 @@
 require_once("includes/header.php");
 require_once("includes/classes/VideoUploadData.php");
 
+/*
+ * TODO: Add ffmpegPath for major OS (Windows and Linux)
+ * TODO: - $ffmpegPath = "ffmpeg/bin/ffmpeg.exe" (Windows)
+ * TODO: - $ffmpegPath = "ffmpeg/linux/ffmpeg" (Linux)
+ * TODO: Add ffmpeg scripts for major OS (Windows and Linux)
+ * 
+ * NOTE: Currently, the $ffmpegPath is only for Windows
+ */
+
 class VideoProcessor
 {
     private $con;
     private $sizeLimit = 500000000000;
     private $allowedTypes = array("mp4", "flv", "webm", "mkv", "avi", "wmv", "mov", "mpeg", "mpg");
     private $ffmpegPath;
+    private $ffprobePath;
 
     public function __construct($con)
     {
         $this->con = $con;
         $this->ffmpegPath = realpath("ffmpeg/bin/ffmpeg.exe");
+        $this->ffprobePath = realpath("ffmpeg/bin/ffprobe.exe");
     }
 
     public function upload($videoUploadData)
@@ -46,6 +57,11 @@ class VideoProcessor
 
             if (! $this->deleteOriginalFile($tempFilePath)) {
                 echo "Can't\n";
+                return false;
+            }
+
+            if (! $this->generateThumbnails($finalFilePath)) {
+                echo "Couldn't generate thumbnails\n";
                 return false;
             }
         }
@@ -123,6 +139,43 @@ class VideoProcessor
         }
 
         return true;
+    }
+
+    private function generateThumbnails($filePath)
+    {
+        $thumbnailSize = "210x118";
+        $numThumbnails = 3;
+        $pathToThumbnail = "uploads/videos/thumbnails";
+
+        $videoDuration = $this->getVideoDuration($filePath);
+
+        $videoId = $this->con->lastInsertId();
+        $this->updateDuration($videoDuration, $videoId);
+    }
+
+    private function getVideoDuration($filePath)
+    {
+        return shell_exec("$this->ffprobePath -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $filePath");
+    }
+
+    private function updateDuration($duration, $videoId) 
+    {
+        $duration = (int) $duration;
+        
+        $hours = floor($duration / 3600);
+        $mins = floor(($duration - ($hours * 3600)) / 60);
+        $secs = floor($duration % 60);
+
+        $hours = ($hours < 1) ? "" : $hours . ":";
+        $mins = ($hours < 10) ? "0" . $mins . ":" : $mins . ":";
+        $secs = ($secs < 10) ? "0" . $secs : $secs;
+
+        $duration = $hours.$mins.$secs;
+
+        $query = $this->con->prepare("UPDATE videos SET duration=:duration WHERE id=:videoId");
+        $query->bindParam(":duration", $duration);
+        $query->bindParam(":videoId", $videoId);
+        $query->execute();
     }
 
 }
