@@ -20,6 +20,9 @@ $videoUploadData = new VideoUploadData(
 $videoProcessor = new VideoProcessor($con);
 $wasSuccessful = $videoProcessor->upload($videoUploadData);
 
+if ($wasSuccessful) {
+    echo "Upload successful";
+}
 
 ?>
 
